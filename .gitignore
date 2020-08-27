@@ -1,0 +1,9 @@
+# Ignore data folders
+pdb/
+mmCIF/
+XML/
+biopython/
+
+# Ignore input/output
+*.out
+*.gz

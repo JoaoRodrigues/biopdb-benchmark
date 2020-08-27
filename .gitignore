@@ -7,3 +7,7 @@ biopython/
 # Ignore input/output
 *.out
 *.gz
+*.pdb
+*.cif
+*.log
+.listing

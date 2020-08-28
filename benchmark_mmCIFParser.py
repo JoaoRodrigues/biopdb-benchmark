@@ -28,6 +28,12 @@ from Bio.PDB import MMCIFParser
 from Bio.PDB import MMCIFIO
 
 
+def get_n_all_atoms(s):
+    return sum(
+        1 for r in s.get_residues() for a in r.get_unpacked_list()
+    )
+
+
 def main():
 
     ap = argparse.ArgumentParser(description=__doc__)
@@ -58,6 +64,13 @@ def main():
                 read_time = t1 - t0
                 read_memu = mem1 - mem0
 
+                data = {
+                    'models': len(list(s.get_models())),
+                    'chains': len(list(s.get_chains())),
+                    'resids': len(list(s.get_residues())),
+                    'atoms': get_n_all_atoms(s)
+                }
+
             # Write
             writer.set_structure(s)
             t0 = time.time()
@@ -68,21 +81,16 @@ def main():
             # Round-trip
             s2 = parser.get_structure('new', 'temp.cif')
 
-            assert len(list(s.get_models())) == len(list(s2.get_models()))
-            assert len(list(s.get_chains())) == len(list(s2.get_chains()))
-            assert len(list(s.get_residues())) == len(list(s2.get_residues()))
-            assert len(list(s.get_atoms())) == len(list(s2.get_atoms()))
+            assert data['models'] == len(list(s2.get_models()))
+            assert data['chains'] == len(list(s2.get_chains()))
+            assert data['resids'] == len(list(s2.get_residues()))
+            assert data['atoms'] == get_n_all_atoms(s2)
 
         except Exception as err:
             with ciff.with_suffix('.failed').open('w') as f:
                 print(err, file=f)
                 print(traceback.format_exc(), file=f)
         else:
-            n_models = len(list(s.get_models()))
-            n_chains = len(list(s.get_chains()))
-            n_resids = len(list(s.get_residues()))
-            n_atoms = len(list(s.get_atoms()))
-
             # Write XML file with numbers
             root = Element('structure')
             root.set('path', ciff.name)
@@ -90,10 +98,9 @@ def main():
             root.set('write_time', f'{write_time:5.3f}')
             root.set('memory_usage', f'{read_memu}')
 
-            for level in ('models', 'chains', 'residues', 'atoms'):
+            for level in ('models', 'chains', 'resids', 'atoms'):
                 child = SubElement(root, level)
-                prop = getattr(s, f'get_{level}')
-                child.text = str(len(list(prop())))
+                child.text = str(data[level])
 
             # Reparse for pretty print
             xml = minidom.parseString(tostring(root, 'utf-8'))

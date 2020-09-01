@@ -10,4 +10,5 @@ biopython/
 *.pdb
 *.cif
 *.log
+*.temp
 .listing

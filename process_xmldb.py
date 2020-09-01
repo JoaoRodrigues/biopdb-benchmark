@@ -45,9 +45,9 @@ def main():
             models = set()
             chains = set()
             resids = set()
-            n_atoms = 0  # easier
+            aatoms = set()
+            hetatoms = set()
             for atom in tree.findall(f'.//{prefix}atom_site'):
-                n_atoms += 1
 
                 try:
                     model = atom.find(f'{prefix}pdbx_PDB_model_num').text
@@ -65,28 +65,75 @@ def main():
                     resid = atom.find(f'{prefix}label_seq_id').text
 
                 try:
+                    resn = atom.find(f'{prefix}auth_comp_id').text
+                except AttributeError:
+                    resn = atom.find(f'{prefix}label_comp_id').text
+
+                try:
                     icode = atom.find(f'{prefix}pdbx_PDB_ins_code').text
                 except AttributeError:
-                    icode = None
+                    icode = ' '
+
+                try:
+                    hetatm = atom.find(f'{prefix}group_PDB').text == 'HETATM'
+                except AttributeError:
+                    hetatm = False  # just in case
+
+                try:
+                    altloc = atom.find(f'{prefix}label_alt_id').text
+                except AttributeError:
+                    altloc = ' '
+
+                try:
+                    atname = atom.find(f'{prefix}auth_atom_id').text
+                except AttributeError:
+                    atname = atom.find(f'{prefix}label_atom_id').text
 
                 models.add(model)
                 chains.add(chain)
-                resids.add((chain, resid, icode))
+                resids.add((chain, resid, resn, icode))
+                aatoms.add((chain, resid, resn, icode, atname, altloc, hetatm))
+
+            n_models = len(models)
+            n_chains = len(chains)
+            n_resids = len(resids)
+            n_aatoms = len(aatoms)
+
+            n_icodes = 0
+            n_ptmuts = 0
+            ptmuts = set()
+            for r in resids:
+                n_icodes += int(r[3] != ' ')
+                rid = (r[0], r[1], r[3])
+                if rid not in ptmuts:
+                    ptmuts.add(rid)
+                else:
+                    n_ptmuts += 1
+
+            n_hetatm = 0
+            n_altloc = 0
+            for a in aatoms:
+                n_altloc += int(a[-2] != ' ')
+                n_hetatm += int(a[-1])
 
             data = {
-                'models': len(models),
-                'chains': len(chains),
-                'resids': len(resids),
-                'atoms': n_atoms
+                'models': n_models,
+                'chains': n_chains,
+                'residues': n_resids,
+                'res-icode': n_icodes,
+                'res-ptmut': n_ptmuts,
+                'all-atoms': n_aatoms,
+                'het-atoms': n_hetatm,
+                'altlocs': n_altloc
             }
 
             # Write XML file with numbers
             root = ElementTree.Element('structure')
             root.set('path', fpath.name)
 
-            for level in ('models', 'chains', 'resids', 'atoms'):
-                child = ElementTree.SubElement(root, level)
-                child.text = str(data.get(level))
+            for key, value in data.items():
+                child = ElementTree.SubElement(root, key)
+                child.text = str(value)
 
             # Reparse for pretty print
             xml = minidom.parseString(

@@ -64,14 +64,22 @@ def summarize_structure(structure):
     for chain in model:  # all models should be the same anyway
         n_chains += 1
         for resid in chain:
-            n_ptmuts += int(resid.is_disordered() == 2)
-            n_icodes += int(resid.id[2] != ' ')
-            n_resids += 1
+            is_ptmut = resid.is_disordered() == 2
+            n_ptmuts += int(is_ptmut)
 
-            for atom in resid.get_unpacked_list():
-                n_hatoms += int(atom.parent.id[0] != ' ')
-                n_aatoms += 1
-                n_altloc += int(atom.altloc != ' ')
+            if is_ptmut:
+                children = resid.disordered_get_list()
+            else:
+                children = [resid]
+
+            for child in children:  # silly, but practical
+                n_icodes += int(child.id[2] != ' ')
+                n_resids += 1
+
+                for atom in child.get_unpacked_list():
+                    n_hatoms += int(atom.parent.id[0] != ' ')
+                    n_aatoms += 1
+                    n_altloc += int(bool(atom.altloc.strip()))
 
     return {
         'models': n_models,
@@ -174,7 +182,7 @@ def main():
             s2 = parser.get_structure('new', 'io.temp')
             data2 = summarize_structure(s2)
 
-            assert data == data2, 'Summaries differ'
+            assert data == data2, f'Summaries differ: {data} != {data2}'
 
         except Exception as err:
             with fpath.with_suffix('.failed').open('w') as f:

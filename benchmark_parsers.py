@@ -18,6 +18,7 @@ import pathlib
 import sys
 import time
 import traceback
+import warnings
 from xml.dom import minidom  # for pretty-printing
 from xml.etree.ElementTree import (
     Element, SubElement, tostring,
@@ -89,7 +90,7 @@ def summarize_structure(structure):
         'res-ptmut': n_ptmuts,
         'all-atoms': n_aatoms,
         'het-atoms': n_hatoms,
-        'altlocs': n_altloc
+        'altlocs': n_altloc,
     }
 
 
@@ -98,9 +99,18 @@ def test_element_assignment(structure):
         for atom in residue.get_unpacked_list():
             # Test element assignment
             og_elem = atom.element.strip()
-            atom._assign_element(element=None)  # force reassignment
-            assert og_element and og_element == atom.element, \
-                f'Element mismatch: "{og_elem}" != "{atom.element}"'
+
+            with warnings.catch_warnings():
+                warnings.simplefilter('ignore')
+                atom._assign_element(element=None)  # force reassignment
+
+            serial = atom.serial_number
+            name = atom.name
+            assert og_elem and og_elem == atom.element, \
+                (
+                    f'Element mismatch for atom {serial}-{name}:'
+                    f' "{og_elem}" != "{atom.element}"'
+                )
 
 
 def main():
@@ -183,6 +193,8 @@ def main():
             data2 = summarize_structure(s2)
 
             assert data == data2, f'Summaries differ: {data} != {data2}'
+
+            test_element_assignment(s)  # raises assert if failed
 
         except Exception as err:
             with fpath.with_suffix('.failed').open('w') as f:
